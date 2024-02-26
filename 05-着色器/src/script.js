@@ -28,17 +28,25 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.z = 10;
+camera.position.set(0, 0, 1);
 scene.add(camera);
 
-const boxGeometry = new THREE.BoxGeometry(5, 0.5, 10, 10);
+const geometry = new THREE.PlaneBufferGeometry(1, 1, 32, 32);
+const count = geometry.attributes.position.count;
+const randoms = new Float32Array(count);
+for (let i = 0; i < randoms.length; i++) {
+  randoms[i] = Math.random();
+}
+geometry.setAttribute("aRandom", new THREE.BufferAttribute(randoms, 1));
+console.log(geometry.attributes);
 const material = new THREE.RawShaderMaterial({
   vertexShader,
   fragmentShader,
-  wireframe: true,
+  wireframe: false,
+  transparent: true,
 });
 
-const mesh = new THREE.Mesh(boxGeometry, material);
+const mesh = new THREE.Mesh(geometry, material);
 scene.add(mesh);
 
 // 镜头控制器

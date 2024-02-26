@@ -1268,3 +1268,187 @@ float add(float a, float b) {
 
 **顶点着色器**的作用是将几何体的每个顶点放置在`2D`渲染空间上，即顶点着色器将`3D`顶点坐标转换为`2D`canvas坐标。
 
+##### main 函数
+
+它将被自动调用，并且不会返回任何内容
+
+```glsl
+void main() {
+	
+}
+```
+
+##### gl_Position
+
+`gl_Position`是一个内置变量，我们只需要给他重新赋值就能只用，它将会包含屏幕上的顶点位置。下面`main`函数中就是用于给他设置合适的值。执行这段指令后，将得到一个vec4，意味着我们可以直接在gl_Position变量上使用x、y、z和w属性。
+
+```glsl
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+
+attribute vec3 position;
+
+void main() {
+	  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+      gl_Position.x += 0.5;
+      gl_Position.y += 0.5;
+}
+```
+
+平面向右上角发生了位移，但是需要注意的是，我们并没有像在 `three.js`中一样将平面在三维空间中进行了移动，我们只是在二维空间移动了平面投影。就像你在桌子上画了一幅具有透视效果的画，然后把它向桌子右上角移动，但是你的华中的透视效果并没有发生变化。
+
+`gl_Position`的作用是在 `2D` 空间上定位顶点，既然是 `2D` 空间为什么需要使用一个四维向量表示呢？实际上是这些坐标并不是精确的在 `2D`空间，而是位于被称为 `Clip Space` 需要四个维度的裁切空间。裁切空间只是在-1到+1 范围内所有x、y、z 3个方向上的空间，第四个值w用于表示透视。就像把所有东西都放在3d盒子中一样，任何超出范围的内容都将被裁剪 `gl_Position`这些内容都是自动外城的，我们只需明白其原理即可。
+
+##### 位置属性Position attributes
+
+相同的代码将应用于几何体的每一个顶点，属性变量 `attribute`是在顶点之间唯一会发生改变的变量。相同的顶点着色器 `Vertex Shader`将应用于每一个顶点，`position`属性将包含具体顶点的 x,y,z坐标值。我们可以使用如下代码获取顶点位置：
+
+```glsl
+attribute vec3 position;
+```
+
+因为 `gl_Position`是vec4类型，可以使用一下方法将vec3转化成vec4;
+
+```
+gl_Position = vec4(position, 1.0);
+```
+
+##### 矩阵限定变量Matrices uniforms
+
+每个矩阵将转换 `position`，直到我们获得最终的裁切空间坐标。下面是3个矩阵，因为在几何体所有顶点中它们的值都是相同的，我们可以通过 `uniform`来获取他们。
+
+```glsl
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+```
+
+下面将对每个矩阵做出一些变换：
+
+- `modelMatrix`：将进行网格相关的变换，如缩放、旋转、移动等操作变换都将作用于 `position`。
+- `viewMatrix`：将进行相机相关变的变换，如果我们向左移动相机。顶点应该在右边、如果我们朝着网格方向移动相机，顶点会变大。
+- `projectionMatrix`：会将我们的坐标转化为裁切空间坐标。
+
+为了使用矩阵，我们需要将其相乘，如果想让一个`mat4`作为变量则改变量必须是 `vec4`我们也可以将多个矩阵相乘：
+
+```glsl
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+```
+
+实际上还可以使用更短的写法让 `viewMatrix`和 `modelMatrix`组合成一个 `projectionMatrix`，虽然代码少了，但是我们可以控制的步骤也少了。
+
+```glsl
+uniform mat4 projectionMatrix;
+uniform mat4 modelMatrix;
+attribute vec3 position;
+
+void main() {
+	  gl_Position = projectionMatrix * modelMatrix * vec4(position, 1.0);
+}
+```
+
+实际中我们会选择更长的写法，以便于更好理解及对 `position`进行更多控制
+
+```glsl
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+attribute vec3 position;
+
+void main(){
+  vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+  vec4 viewPosition = viewMatrix * modelPosition;
+  vec4 projectedPosition = projectionMatrix * viewPosition;
+  gl_Position = projectedPosition;
+}
+```
+
+#### 理解片元着色器Fragment Shader
+
+**片元着色器**的代码将应用于几何体的每个可见像素，这就是片元着色器在顶点着色器之后运行的原因，它的代码比顶点着色器更容易管理。
+
+##### main函数
+
+同样，片元着色器中也有一个主函数。
+
+```
+void mian() {}
+```
+
+##### 精度Precision
+
+在顶部有一条这样的指令，我们用它来决定浮点数的精度，有一下几种值供选择
+
+- `high`：会影响性能，在有些机器上可能无法运行；
+- `mediump`：常用的类型；
+- `lowp`：可能会由于精度问题产生错误；
+
+```glsl
+precision mediump float;
+```
+
+我们现在示例使用的是 `RawShaderMaterial`原始着色器材质才需要设置精度，在着色器材质 `ShaderMaterial`中会自动处理。
+
+> 在顶点着色器中也可以设置精度，但这是非必须的。
+
+##### gl_FragColor
+
+`gl_FragColor`和 `gl_Position`类似，但它用于颜色。它也一样是被内置声明了的，我们只需要在main函数中重新给他赋值。他是一个 `vec4`类型的变量，前三个值是红色、绿色、蓝色通道 `(r,g,b)`,第四个是透明度alpha `（r,g,b,a）`。`gl_FragColor`的每个值的取值范围是 `0.0 ~ 1.0`,如果我们设置的值高于它们，也不会产生错误
+
+下面这段代码将生成一个紫色的几何体
+
+```glsl
+gl_FragColor = vec4(0.5, 0.0, 1.0, 1.0);
+```
+
+为了`alpha`透明度值可以生效，我们需要在材质中将 `transparent`属性设置为true
+
+```glsl
+const material = new THREE.RawShaderMaterial({
+  vertexShader,
+  fragmentShader,
+  wireframe: true,
+  transparent: true,
+});
+```
+
+##### 属性 Attributes
+
+**Attrubutes**是每个顶点之间变化的值，我们之间已经有一个命名为 `position`的属性变量，他是每个顶点在坐标轴中 `vec3`值。我们将为每个顶点添加一个随机值，并根据这个值在 `z`轴上移动改顶点，在js代码中我们可以像这样直接给 `BufferGeometry`添加 `attribute`属性。然后再创建一个32位的浮点类型数组 `Float32Array`，为了知道几何体中有多少个顶点，我们可以通过 `attributes`属性获取。最后在 `BufferAttribute`中使用该数组，并将它添加到几何体的属性中
+
+- `setAttribute`：第一个参数是需要设置的 `attribute` **属性名称**，然后在着色器中可以使用该名字，属性名命名时最好加一个 `a` 前缀方便区分。
+- `BufferAttribute`：第一个参数是**数据数组**；第二个参数表示组成一个属性的值的数量，如我们要发送一个 `(x, y, z)` 构成位置，则需要使用 `3`，示例中每个顶点的随机数只有 `1个`，因此这个参数使用 `1`。
+
+
+
+```javascript
+const geometry = new THREE.PlaneBufferGeometry(1, 1, 32, 32);
+const count = geometry.attributes.position.count;
+const randoms = new Float32Array(count);
+for (let i = 0; i < randoms.length; i++) {
+  randoms[i] = Math.random();
+}
+geometry.setAttribute("aRandom", new THREE.BufferAttribute(randoms, 1));
+```
+
+现在我们可以在着色器中获取该属性
+
+```
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+
+attribute vec3 position;
+attribute float aRandom;
+
+void main() {
+  vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+  modelPosition.z += aRandom * 0.1;
+  vec4 viewPosition = viewMatrix * modelPosition;
+  vec4 projectedPosition = projectionMatrix * viewPosition;
+  gl_Position = projectedPosition;
+
+}
+```
+
