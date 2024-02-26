@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      #box {
+        background-color: deeppink;
+        width: 100px;
+        height: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="box"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.0/tween.umd.js"></script>
+    <script>
+      const box = document.getElementById("box"); // 获取我们想要设置动画的元素。
+      const coords = { x: 0, y: 0 }; // 从 (0, 0) 开始
+      const tween = new TWEEN.Tween(coords, false) // 创建一个修改“坐标”的新 tween。
+        .to({ x: 300, y: 200 }, 1000) // 在 1 秒内移动到 (300, 200)。
+        .easing(TWEEN.Easing.Quadratic.InOut) // 使用缓动函数使动画流畅。
+        .onUpdate(() => {
+          // 在 tween.js 更新“坐标”后调用。
+          // 使用 CSS transform 将 'box' 移动到 'coords' 描述的位置。
+          box.style.setProperty(
+            "transform",
+            "translate(" + coords.x + "px, " + coords.y + "px)"
+          );
+        })
+        .start(); // 立即开始 tween。
+      // 设置动画循环。
+      function animate(time) {
+        tween.update(time);
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>
